@@ -222,6 +222,12 @@ def _limpar_corpo(doc):
 
 def _estilo_run(run, *, size=TAM_CORPO, bold=False, italic=False):
     run.font.name = FONTE
+    # font.name so grava w:ascii/w:hAnsi. Sem w:cs e w:eastAsia o Word pode trocar
+    # a fonte em trecho com caractere fora do latim basico (aspas tipograficas,
+    # simbolos colados de PDF) e a peca sai com duas fontes misturadas.
+    rfonts = run._element.get_or_add_rPr().get_or_add_rFonts()
+    for atributo in ('w:ascii', 'w:hAnsi', 'w:cs', 'w:eastAsia'):
+        rfonts.set(qn(atributo), FONTE)
     run.font.size = size
     run.font.color.rgb = RGBColor(0, 0, 0)
     run.bold = bold
@@ -382,7 +388,11 @@ def gerar_peca_escritorio(texto_peca: str, output_path):
     _ajustar_margens(doc)
     _limpar_corpo(doc)
 
-    # Quebra em blocos (separados por linhas em branco)
+    # Quebra em blocos (separados por linhas em branco).
+    # Cabecalho markdown ("## II - DOS FATOS") vindo da IA perderia o "#" so na
+    # tela: tira o marcador e deixa o titulo para o reconhecimento normal.
+    texto_peca = (texto_peca or '').replace('\r\n', '\n')
+    texto_peca = re.sub(r'(?m)^[ \t]*#{1,6}[ \t]+', '', texto_peca)
     linhas = [l.rstrip() for l in texto_peca.split('\n')]
     blocos = []
     atual = []

@@ -25,6 +25,11 @@ Funcoes disponiveis:
     sincronizar_assinados_para_drive(drive, log_path, buscar_pasta_cliente_fn)
       -> dict com resumo (novos, ja_sincronizados, erros)
 
+  Manutencao de documento pendente (escrevem no ZapSign - so com pedido explicito):
+    atualizar_signatario(signer_token, **campos) -> (ok, resposta)
+    reenviar_notificacoes(doc_token) -> (ok, resposta)
+    signatarios_pendentes(doc_token) -> list   (somente leitura)
+
 Endpoints ZapSign:
   POST /api/v1/docs/            criar doc
   GET  /api/v1/docs/?page=N     listar docs
@@ -83,14 +88,24 @@ def normalizar_telefone(tel):
     return d
 
 
-def criar_signatario(nome, email=None, telefone=None, auth_mode='assinaturaTela',
+# Modo de autenticacao padrao do signatario. Pode ser trocado sem mexer no codigo
+# por ZAPSIGN_AUTH_MODE no config/.env. Valores aceitos pela API: 'assinaturaTela',
+# 'tokenWhatsapp' (so o codigo, sem desenho - plano B de quem trava na tela),
+# 'assinaturaTela-tokenWhatsapp' (desenho + codigo por WhatsApp, que chega com mais
+# confianca que o SMS), 'tokenSms', 'assinaturaTela-tokenSms', 'certificadoDigital'.
+MODO_ASSINATURA_PADRAO = 'assinaturaTela'
+
+
+def criar_signatario(nome, email=None, telefone=None, auth_mode=None,
                      send_email=None, send_whatsapp=None):
     """
     Monta um dict de signatario para a API do ZapSign.
 
-    auth_mode: 'assinaturaTela' (default), 'certificadoDigital', 'pix', etc.
+    auth_mode: None = ZAPSIGN_AUTH_MODE do .env, senao 'assinaturaTela'.
+               Tambem aceita 'certificadoDigital', 'tokenWhatsapp' etc.
     send_email / send_whatsapp: None = autodetecta pelos dados; True/False sobrescreve.
     """
+    auth_mode = auth_mode or os.getenv('ZAPSIGN_AUTH_MODE') or MODO_ASSINATURA_PADRAO
     tel = normalizar_telefone(telefone) or None
     em = email or None
     return {
@@ -217,6 +232,15 @@ def enviar_para_zapsign(drive_service, nome_cliente, docs_gerados, dados_cliente
         is_procuracao = 'PROCURAC' in up
         is_declaracao = 'DECLARAC' in up
         if not (is_contrato or is_procuracao or is_declaracao):
+            continue
+
+        # Trava anti-modelo (google_integration.gerar_documentos_cliente marca
+        # 'bloqueado' quando sobra campo essencial do modelo ou recado da
+        # automacao no texto). Documento sem preambulo completo nao vale como
+        # titulo e nao vai para o cliente assinar.
+        if doc.get('bloqueado'):
+            print(f'   BARRADO (nao enviado): {doc_nome} - campo em aberto: '
+                  f'{", ".join(doc.get("faltando") or [])}')
             continue
 
         print(f'   Enviando: {doc_nome}...')
@@ -372,6 +396,23 @@ def sincronizar_assinados_para_drive(drive_service, log_path, buscar_pasta_clien
                 resumo['erros'].append(f'{nome_doc}: pasta de "{nome_cliente}" nao encontrada')
                 continue
 
+            nome_arquivo = f'{nome_doc} (ASSINADO).pdf'
+            # Memoria do log perdida (log apagado, outro log_path) nao pode
+            # duplicar o PDF na pasta do cliente: confere o nome antes de subir.
+            try:
+                escapado = nome_arquivo.replace('\\', '\\\\').replace("'", "\\'")
+                existentes = drive_service.files().list(
+                    q=f"'{pasta_id}' in parents and trashed=false and name='{escapado}'",
+                    fields='files(id)', pageSize=1,
+                    supportsAllDrives=True, includeItemsFromAllDrives=True,
+                ).execute().get('files', [])
+            except Exception:
+                existentes = []
+            if existentes:
+                sincronizados.add(token)
+                resumo['ja_sincronizados'] += 1
+                continue
+
             pdf_bytes = baixar_pdf_assinado(signed_file)
             if not pdf_bytes:
                 resumo['erros'].append(f'{nome_doc}: falha download PDF')
@@ -380,7 +421,7 @@ def sincronizar_assinados_para_drive(drive_service, log_path, buscar_pasta_clien
             try:
                 media = MediaInMemoryUpload(pdf_bytes, mimetype='application/pdf')
                 drive_service.files().create(
-                    body={'name': f'{nome_doc} (ASSINADO).pdf', 'parents': [pasta_id]},
+                    body={'name': nome_arquivo, 'parents': [pasta_id]},
                     media_body=media,
                     supportsAllDrives=True,
                 ).execute()
@@ -407,3 +448,81 @@ def sincronizar_assinados_para_drive(drive_service, log_path, buscar_pasta_clien
         resumo['erros'].append(f'erro ao salvar log: {e}')
 
     return resumo
+
+
+# ============================================================
+# MANUTENCAO DE DOCUMENTO PENDENTE
+# (escrevem no ZapSign: so chamar com pedido explicito)
+# ============================================================
+
+def atualizar_signatario(signer_token, **campos):
+    """
+    Altera o cadastro de um signatario que AINDA NAO ASSINOU.
+    POST /signers/{token}/
+
+    Uso tipico: trocar o auth_mode de quem trava na tela de desenho (para
+    'tokenWhatsapp', so o codigo) ou preencher o telefone de um documento que
+    nasceu sem ele - caso em que o cliente nunca e avisado.
+
+    Campos aceitos pela API: name, email, phone_country, phone_number, auth_mode,
+    lock_name, lock_email, lock_phone, qualification, external_id,
+    send_automatic_whatsapp, send_automatic_email, require_cpf, cpf,
+    validate_cpf, redirect_link, entre outros.
+
+    Retorna (ok, resposta).
+    """
+    url = f'{ZAPSIGN_BASE}/signers/{signer_token}/'
+    try:
+        r = requests.post(url, headers=get_zapsign_headers(), json=campos, timeout=60)
+    except requests.RequestException as e:
+        log.warning(f'atualizar_signatario {signer_token}: {e}')
+        return False, {'erro': str(e)}
+    ok = r.status_code in (200, 201)
+    if not ok:
+        log.warning(f'atualizar_signatario {signer_token}: {r.status_code} {r.text[:200]}')
+    try:
+        return ok, r.json()
+    except ValueError:
+        return ok, {'status_code': r.status_code, 'texto': r.text[:300]}
+
+
+def reenviar_notificacoes(doc_token):
+    """
+    Reenvia o aviso de assinatura a TODOS os signatarios pendentes do documento.
+    POST /docs/{token}/resend-notifications-bulk/
+
+    Quem ja assinou nao recebe nada. A API devolve 429 com 'cooldown_period'
+    quando houve reenvio recente - nao e erro, e so aguardar.
+
+    Retorna (ok, resposta); a resposta traz sent_count e failed_signers.
+    """
+    url = f'{ZAPSIGN_BASE}/docs/{doc_token}/resend-notifications-bulk/'
+    try:
+        r = requests.post(url, headers=get_zapsign_headers(), json={}, timeout=60)
+    except requests.RequestException as e:
+        log.warning(f'reenviar_notificacoes {doc_token}: {e}')
+        return False, {'erro': str(e)}
+    ok = r.status_code in (200, 201)
+    if not ok:
+        log.warning(f'reenviar_notificacoes {doc_token}: {r.status_code} {r.text[:200]}')
+    try:
+        return ok, r.json()
+    except ValueError:
+        return ok, {'status_code': r.status_code, 'texto': r.text[:300]}
+
+
+def signatarios_pendentes(doc_token):
+    """
+    Lista quem AINDA NAO assinou o documento (somente leitura).
+    Retorna list[{'nome','token','status','link'}].
+    """
+    pendentes = []
+    for s in listar_signatarios_documento(doc_token):
+        if s.get('status') != 'signed':
+            pendentes.append({
+                'nome': s.get('name'),
+                'token': s.get('token'),
+                'status': s.get('status'),
+                'link': s.get('sign_url'),
+            })
+    return pendentes

@@ -157,31 +157,66 @@ def criar_pasta_cliente(drive_service, nome_cliente: str) -> str:
     Retorna o ID da pasta principal criada.
     """
     pasta_reclamante_id = os.getenv("GOOGLE_PASTA_RECLAMANTE", "")
+    if not pasta_reclamante_id:
+        print("ERRO: GOOGLE_PASTA_RECLAMANTE nao configurado no .env (ID da pasta-mae no Drive).")
+        return None
 
-    print(f"Criando pasta do cliente: {nome_cliente}...")
+    nome_alvo = nome_cliente.upper().strip()
+    MIME_DIR = 'application/vnd.google-apps.folder'
 
     try:
-        # Criar pasta principal do cliente
-        pasta_cliente = drive_service.files().create(body={
-            'name': nome_cliente.upper(),
-            'mimeType': 'application/vnd.google-apps.folder',
-            'parents': [pasta_reclamante_id]
-        }, fields='id, webViewLink').execute()
+        # IDEMPOTENTE: rodar o intake de novo (falha no meio, reprocessamento)
+        # nao pode criar uma segunda pasta com o mesmo nome. Com nome repetido,
+        # quem arquiva documento (sync de assinados) nao sabe em qual gravar.
+        escapado = nome_alvo.replace('\\', '\\\\').replace("'", "\\'")
+        achadas = drive_service.files().list(
+            q=(f"'{pasta_reclamante_id}' in parents and mimeType='{MIME_DIR}' "
+               f"and trashed=false and name='{escapado}'"),
+            fields='files(id, name, webViewLink)', pageSize=50).execute().get('files', [])
+        if len(achadas) > 1:
+            # caso ja sujo: fica com a que tem mais conteudo e NAO cria outra
+            def _tamanho(fid):
+                try:
+                    return len(drive_service.files().list(
+                        q=f"'{fid}' in parents and trashed=false",
+                        fields='files(id)', pageSize=200).execute().get('files', []))
+                except HttpError:
+                    return 0
+            achadas.sort(key=lambda f: _tamanho(f['id']), reverse=True)
+            print(f"ATENCAO: {len(achadas)} pastas com o nome {nome_alvo}. "
+                  f"Reuso a de id {achadas[0]['id']} (a com mais conteudo) e NAO crio outra. "
+                  "Limpar as duplicadas a mao.")
+        if achadas:
+            pasta_id = achadas[0]['id']
+            pasta_link = achadas[0].get('webViewLink', '')
+            print(f"Pasta do cliente JA EXISTIA, reusando: {nome_alvo} ({pasta_id})")
+        else:
+            print(f"Criando pasta do cliente: {nome_cliente}...")
+            pasta_cliente = drive_service.files().create(body={
+                'name': nome_alvo,
+                'mimeType': MIME_DIR,
+                'parents': [pasta_reclamante_id]
+            }, fields='id, webViewLink').execute()
+            pasta_id = pasta_cliente['id']
+            pasta_link = pasta_cliente.get('webViewLink', '')
 
-        pasta_id = pasta_cliente['id']
-        pasta_link = pasta_cliente.get('webViewLink', '')
-
-        # Criar as 3 subpastas
+        # Criar as 3 subpastas que faltarem (nunca duplicar subpasta)
+        existentes = {f['name'].strip().upper() for f in drive_service.files().list(
+            q=f"'{pasta_id}' in parents and mimeType='{MIME_DIR}' and trashed=false",
+            fields='files(id, name)', pageSize=100).execute().get('files', [])}
         subpastas = ['ATOS INTERNOS', 'DOCUMENTOS DO CLIENTE', 'PASTA DO CLIENTE']
         for sub in subpastas:
+            if sub in existentes:
+                print(f"   Subpasta ja existia: {sub}")
+                continue
             drive_service.files().create(body={
                 'name': sub,
-                'mimeType': 'application/vnd.google-apps.folder',
+                'mimeType': MIME_DIR,
                 'parents': [pasta_id]
             }).execute()
             print(f"   Subpasta criada: {sub}")
 
-        print(f"Pasta do cliente criada com sucesso!")
+        print(f"Pasta do cliente pronta!")
         print(f"Link: {pasta_link}")
         return pasta_id
 
@@ -190,7 +225,7 @@ def criar_pasta_cliente(drive_service, nome_cliente: str) -> str:
         return None
 
 
-def buscar_proximo_contrato(drive_service, nome_cliente="", empresa="", area="TRABALHISTA"):
+def buscar_proximo_contrato(drive_service, nome_cliente="", empresa="", area=""):
     """
     Busca o proximo numero sequencial de contrato na planilha de controle
     e registra o novo contrato na proxima linha.
@@ -200,19 +235,29 @@ def buscar_proximo_contrato(drive_service, nome_cliente="", empresa="", area="TR
     from datetime import datetime
     from googleapiclient.http import MediaInMemoryUpload
 
-    planilha_id = os.getenv("GOOGLE_SHEETS_CONTRATOS_ID", "")
+    planilha_id = (os.getenv("GOOGLE_SHEETS_CONTRATOS_ID", "")
+                   or os.getenv("GOOGLE_PLANILHA_CONTRATOS", ""))
+    if not planilha_id:
+        print("   Aviso: GOOGLE_SHEETS_CONTRATOS_ID nao configurado; pulando numeracao de contrato.")
+        return ""
+
+    # Ano da numeracao acompanha o ano corrente (era '2026' fixo e quebraria em
+    # janeiro de 2027). A aba pode ser forcada por GOOGLE_ABA_CONTRATOS.
+    ano_atual = str(datetime.now().year)
+    aba_contratos = os.getenv("GOOGLE_ABA_CONTRATOS") or f"Contratos {ano_atual}"
+    sufixo_ano = f'/{ano_atual}'
 
     try:
         content = drive_service.files().get_media(fileId=planilha_id).execute()
         wb = openpyxl.load_workbook(io.BytesIO(content))
-        ws = wb['Contratos 2026']
+        ws = wb[aba_contratos]
 
         # Encontrar ultimo numero e ultima linha preenchida
         ultimo = 0
         ultima_linha = 4
         for row in range(5, ws.max_row + 1):
             val = str(ws.cell(row=row, column=8).value or '')
-            if '/2026' in val:
+            if sufixo_ano in val:
                 try:
                     num = int(val.split('/')[0])
                     if num > ultimo:
@@ -223,7 +268,7 @@ def buscar_proximo_contrato(drive_service, nome_cliente="", empresa="", area="TR
 
         proximo = ultimo + 1
         nova_linha = ultima_linha + 1
-        numero_contrato = f"{proximo}/2026"
+        numero_contrato = f"{proximo}{sufixo_ano}"
 
         # Preencher nova linha no padrao
         ws.cell(row=nova_linha, column=4, value=nome_cliente.upper())  # D: Nome
@@ -254,13 +299,21 @@ def buscar_proximo_contrato(drive_service, nome_cliente="", empresa="", area="TR
         return ""
 
 
-def gerar_documentos_cliente(drive_service, docs_service, nome_cliente: str, dados: dict):
+def gerar_documentos_cliente(drive_service, docs_service, nome_cliente: str,
+                             dados: dict, numero_contrato: str = None):
     """
     Gera Contrato, Procuracao e Declaracao de Hipossuficiencia
     a partir dos templates, preenchendo com os dados do cliente.
 
     IDs de template e pasta de destino sao lidos de variaveis de ambiente
     (o escritorio configura os modelos proprios no Drive dele).
+
+    numero_contrato: ao REFAZER um contrato, passar o numero original - assim
+    nao se queima numero novo na planilha nem se troca o que o cliente ja viu.
+
+    Cada item devolvido traz 'faltando' (marcadores/recados que sobraram no
+    texto) e 'bloqueado' = True quando falta campo essencial. Ver
+    documentos_prontos_para_assinatura().
     """
     from datetime import datetime
 
@@ -292,8 +345,12 @@ def gerar_documentos_cliente(drive_service, docs_service, nome_cliente: str, dad
 
     # Buscar numero sequencial do contrato
     empresa = dados.get('qual_empresa', dados.get('empresa', ''))
-    numero_contrato = buscar_proximo_contrato(drive_service, nome_cliente, empresa)
-    print(f"   Numero do contrato: {numero_contrato}")
+    if numero_contrato:
+        print(f"   Numero do contrato (mantido do original): {numero_contrato}")
+    else:
+        numero_contrato = buscar_proximo_contrato(
+            drive_service, nome_cliente, empresa, dados.get('area', ''))
+        print(f"   Numero do contrato: {numero_contrato}")
 
     # Tratar endereco: remover prefixo de logradouro (Rua, Av, Avenida, etc.)
     # pois o template ja contem "Rua {{Endereco}}" / "residente ... a Rua {{Endereco}}"
@@ -313,8 +370,8 @@ def gerar_documentos_cliente(drive_service, docs_service, nome_cliente: str, dad
         '{{Nacionalidade}}': dados.get('nacionalidade', ''),
         '{{Estado civil do cliente}}': dados.get('estado_civil', ''),
         '{{Estado Civil}}': dados.get('estado_civil', ''),
-        '{{Profissão do cliente}}': dados.get('profissao', 'Motorista'),
-        '{{Profissão}}': dados.get('profissao', 'Motorista'),
+        '{{Profissão do cliente}}': dados.get('profissao', ''),
+        '{{Profissão}}': dados.get('profissao', ''),
         '{{ENDEREÇO DO CLIENTE}}': endereco_limpo,
         '{{Endereço}}': endereco_limpo,
         '{{Bairro}}': dados.get('bairro', ''),
@@ -322,7 +379,7 @@ def gerar_documentos_cliente(drive_service, docs_service, nome_cliente: str, dad
         '{{CEP}}': dados.get('cep', ''),
         '{{telefone do cliente}}': dados.get('telefone', ''),
         '{{e-mail do cliente}}': dados.get('email', ''),
-        '{{NOME DA AÇÃO}}': dados.get('tipo_acao', 'Reclamatoria Trabalhista'),
+        '{{NOME DA AÇÃO}}': dados.get('tipo_acao', ''),
         '{{NOME DA EMPRESA}}': dados.get('qual_empresa', ''),
         '{{nome da empresa}}': dados.get('qual_empresa', ''),
         '{{Data e local de hoje}}': data_local,
@@ -358,12 +415,25 @@ def gerar_documentos_cliente(drive_service, docs_service, nome_cliente: str, dad
                             'replaceText': valor
                         }
                     })
+                elif chave in CAMPOS_OPCIONAIS:
+                    # opcional sem dado: tira o marcador e a virgula que sobraria
+                    requests.extend(_apagar_campo_opcional(chave))
 
             if requests:
                 docs_service.documents().batchUpdate(
                     documentId=doc_id, body={'requests': requests}).execute()
 
-            docs_gerados.append({'nome': nome_arquivo, 'id': doc_id})
+            # Confere o texto REAL do documento pronto (modelo editado a mao
+            # pode ter ganhado campo que o codigo nao conhece).
+            faltando = conferir_preenchimento(drive_service, doc_id)
+            faltando += conferir_recados(drive_service, doc_id)
+            doc = {'nome': nome_arquivo, 'id': doc_id, 'faltando': faltando}
+            if faltando:
+                doc['bloqueado'] = any(c in CAMPOS_ESSENCIAIS or str(c).startswith('[')
+                                       for c in faltando)
+                print(f"   ATENCAO: {nome_arquivo} ficou com campo em aberto: "
+                      f"{', '.join(faltando)}")
+            docs_gerados.append(doc)
             print(f"   Pronto: {nome_arquivo}")
 
         except HttpError as error:
@@ -407,6 +477,138 @@ def preencher_documento(docs_service, document_id: str, dados: dict):
         print(f"ERRO DE API DOCS: Houve um erro ao formatar o texto do arquivo.")
         print(f"Detalhes: {error}")
         sys.exit(1)
+
+
+# ---------------------------------------------------------------------------
+# TRAVA ANTI-MODELO
+#
+# Contrato, procuracao e declaracao sem o preambulo preenchido nao valem como
+# titulo. Campo ESSENCIAL em aberto = o documento NAO vai para assinatura
+# (zapsign_integration.enviar_para_zapsign pula o item com 'bloqueado').
+# Campo OPCIONAL em aberto = o documento sai, mas o marcador some do texto
+# junto com a pontuacao orfa, para o preambulo continuar legivel.
+# ---------------------------------------------------------------------------
+
+CAMPOS_ESSENCIAIS = {
+    '{{Nome do cliente}}', '{{Nome completo}}',
+    '{{CPF do cliente}}', '{{CPF}}',
+    '{{RG do cliente}}', '{{RG}}',
+    '{{ENDEREÇO DO CLIENTE}}', '{{Endereço}}',
+    '{{Bairro}}', '{{Cidade Estado}}', '{{CEP}}',
+    '{{telefone do cliente}}',
+    '{{NOME DA AÇÃO}}',
+    '{{NOME DA EMPRESA}}', '{{nome da empresa}}',
+    '{{Nacionalidade do cliente}}', '{{Nacionalidade}}',
+    '{{Profissão do cliente}}', '{{Profissão}}',
+    '{{Data e local de hoje}}', '{{data e cidade}}',
+    '{{ Número sequencial de contrato  EX: CT. N°.182/2024}}',
+}
+
+# So podem faltar sem barrar os campos que, no modelo, ficam ISOLADOS ENTRE
+# VIRGULAS: da para tira-los sem quebrar a frase. Campo com texto-guia antes
+# ("carteira de identidade de n° {{RG}}") NAO entra aqui - apagar so o
+# marcador costuraria a frase errada.
+CAMPOS_OPCIONAIS = {
+    '{{Estado civil do cliente}}', '{{Estado Civil}}',
+    '{{e-mail do cliente}}',
+}
+
+
+def _apagar_campo_opcional(chave):
+    """Pedidos de batchUpdate que tiram o marcador E a pontuacao em volta.
+
+    O preambulo e uma frase com virgulas ("brasileira, {{Estado civil}},
+    pensionista"); trocar so o marcador por vazio deixaria ", ," no texto
+    assinado. A ordem importa: as variantes com pontuacao vao primeiro.
+    """
+    return [
+        {'replaceAllText': {'containsText': {'text': ', %s,' % chave, 'matchCase': False},
+                            'replaceText': ','}},
+        {'replaceAllText': {'containsText': {'text': ', %s' % chave, 'matchCase': False},
+                            'replaceText': ''}},
+        {'replaceAllText': {'containsText': {'text': '%s, ' % chave, 'matchCase': False},
+                            'replaceText': ''}},
+        {'replaceAllText': {'containsText': {'text': chave, 'matchCase': False},
+                            'replaceText': ''}},
+    ]
+
+
+# Recado da automacao/IA que NUNCA pode aparecer no documento do cliente: o
+# marcador foi substituido, mas por um texto que era para a equipe ler.
+_RECADO_NO_DOCUMENTO = (
+    "nao informado na transcricao", "não informado na transcrição",
+    "nao informados na transcricao", "não informados na transcrição",
+    "nao informada na transcricao", "não informada na transcrição",
+    "nao identificada", "não identificada",
+    "nao identificado", "não identificado",
+    "necessario confirmar", "necessário confirmar",
+    "a confirmar com o cliente", "verificar com o cliente",
+    "grafia incerta", "ilegivel", "ilegível",
+    "sobrenome nao informado", "sobrenome não informado",
+)
+
+
+def _texto_do_doc(drive_service, doc_id):
+    """Texto puro do Google Doc (export text/plain). None se falhar."""
+    try:
+        texto = drive_service.files().export(
+            fileId=doc_id, mimeType='text/plain').execute()
+        if isinstance(texto, bytes):
+            texto = texto.decode('utf-8', 'replace')
+        return texto
+    except Exception as e:
+        print("   Aviso: nao consegui ler o documento %s para conferir: %s" % (doc_id, e))
+        return None
+
+
+def conferir_recados(drive_service, doc_id):
+    """Recado da automacao dentro do documento pronto. Devolve achados no
+    formato '[recado da automacao no documento: "..."]' (sempre barram)."""
+    texto = _texto_do_doc(drive_service, doc_id)
+    if texto is None:
+        return []
+    baixo = texto.lower()
+    achados = []
+    for marca in _RECADO_NO_DOCUMENTO:
+        i = baixo.find(marca)
+        if i >= 0:
+            trecho = " ".join(texto[max(0, i - 60):i + len(marca) + 40].split())
+            achados.append('[recado da automacao no documento: "%s"]' % trecho)
+    return list(dict.fromkeys(achados))
+
+
+def conferir_preenchimento(drive_service, doc_id):
+    """Le o documento PRONTO e devolve os marcadores {{...}} que sobraram, mais
+    as frases que ficaram sem o dado ("CPF sob nº ,").
+
+    Le o texto de verdade, exportado do Drive, em vez de confiar na lista de
+    campos mandada preencher: modelo alterado a mao pode ter campo novo.
+    """
+    import re as _re
+    texto = _texto_do_doc(drive_service, doc_id)
+    if texto is None:
+        return []
+    sobraram = list(dict.fromkeys(_re.findall(r'\{\{[^}]{0,120}\}\}', texto)))
+
+    # FRASE COSTURADA ERRADO: o marcador sumiu mas o rotulo ficou pendurado.
+    for costura in _re.findall(
+            r'(?:de n[º°o]\.?|CPF sob n[º°o]\.?|RG\.?|Cep\.?|CEP:?|'
+            r'Bairro:?|Cidade:?)\s*[,;]', texto):
+        if not _re.search(r'\d', costura):
+            sobraram.append('[frase sem o dado: "%s"]' % costura.strip())
+            break
+    return sobraram
+
+
+def documentos_prontos_para_assinatura(docs_gerados):
+    """(liberados, barrados). Barrado = campo essencial em aberto OU achado de
+    texto (entre colchetes: frase sem o dado, recado da automacao)."""
+    liberados, barrados = [], []
+    for d in docs_gerados:
+        graves = [c for c in d.get('faltando', [])
+                  if c in CAMPOS_ESSENCIAIS or str(c).startswith('[')]
+        (barrados if graves else liberados).append(d)
+    return liberados, barrados
 
 
 if __name__ == '__main__':
