@@ -242,8 +242,8 @@ INICIE PELA QUALIFICACAO DAS PARTES E ESCREVA A PECA INTEIRA APLICANDO O ESTILO 
 
 def formatar_no_timbrado(texto_peca: str, output_path: str | Path) -> Path:
     """
-    Aplica formatacao do escritorio (Montserrat 11, recuo 7cm, citacoes 10pt italico,
-    margens 3/1.6/3/3) no timbrado e salva como .docx.
+    Aplica formatacao do escritorio (Segoe UI 11, recuo 2,5cm, entrelinhas min. 15pt,
+    topicos em tabela azul, margens 2.5/2.5/3/3) no timbrado e salva como .docx.
 
     Limpa marcadores markdown (# / ## / ###) e <<CITACAO>>...<</CITACAO>>.
     """

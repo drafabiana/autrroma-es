@@ -39,11 +39,12 @@ Exemplo (NAO ativo - apenas ilustrativo, deixe vazio ate o onboarding):
 COMISSOES = {}
 
 # Banco/centro de custo/categoria usados ao lancar comissoes no ADVBOX.
-# Preencher no onboarding com os IDs do escritorio (None = nao lancar).
+# IDs reais lidos de GET /settings em 03/09/2026. Inertes enquanto COMISSOES = {}
+# (sem tabela de comissao, o fechamento nao lanca nada).
 ADVBOX_FINANCEIRO = {
-    "banco_principal": None,     # debit_account
-    "centro_custo": None,        # cost_centers_id
-    "categoria_comissao": None,  # categories_id
+    "banco_principal": 202404,     # debit_account - CONTA PRINCIPAL (Itau)
+    "centro_custo": 61488,         # cost_centers_id - GERAL (unico cadastrado)
+    "categoria_comissao": 34,      # categories_id - HONORARIOS DE PARCEIROS (DEBITO)
 }
 
 # Clientes que NAO contam como receita do escritorio (excluir do faturamento).

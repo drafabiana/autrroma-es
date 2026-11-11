@@ -3,7 +3,13 @@ Integracao com API Asaas - Alves Carneiro Advocacia e Consultoria Jurídica
 Modulo para consultar cobrancas, clientes e gerar boletos/PIX.
 
 API Base: https://api.asaas.com/v3
-Auth: access_token header
+Auth: access_token header (config/.env -> ASAAS_API_TOKEN) - INTEGRADO em 11/11/2026
+Conta: FABIANA SILVA ALVES CARNEIRO SOCIEDADE INDIVIDUAL DE ADVOCACIA
+
+Este modulo so LE (cobrancas, clientes, saldo, boleto/PIX). Criar cobranca ou
+cliente no Asaas so com pedido explicito da Dra. Fabiana.
+
+Teste: python INTEGRACOES/asaas_integration.py
 """
 import os
 import sys
@@ -17,8 +23,7 @@ ASAAS_BASE_URL = 'https://api.asaas.com/v3'
 def _get_token():
     token = os.getenv('ASAAS_API_TOKEN')
     if not token:
-        print('ERRO: ASAAS_API_TOKEN nao encontrado no .env')
-        sys.exit(1)
+        raise RuntimeError('ASAAS_API_TOKEN nao encontrado no config/.env')
     return token
 
 
@@ -181,6 +186,12 @@ def formatar_telefone_para_whatsapp(telefone):
     return ''.join(c for c in str(telefone) if c.isdigit())
 
 
+def obter_saldo():
+    """Saldo disponivel na conta Asaas (GET /finance/balance)."""
+    data = _request('GET', '/finance/balance')
+    return float(data.get('balance', 0)) if data else 0.0
+
+
 def testar_conexao():
     print('Testando conexao Asaas...')
     try:
@@ -188,7 +199,7 @@ def testar_conexao():
         if data:
             print(f'  Conta: {data.get("name", "?")}')
             print(f'  Email: {data.get("email", "?")}')
-            print(f'  Saldo disponivel: R$ {data.get("balance", 0):.2f}')
+            print(f'  Saldo disponivel: R$ {obter_saldo():.2f}')
             return True
     except Exception as e:
         print(f'  ERRO: {e}')

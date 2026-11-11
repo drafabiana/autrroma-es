@@ -77,10 +77,13 @@ IMPORTANTE: Na analise, NAO use hifens ou travessoes para listar itens. Use topi
 ============================================================
 PADROES DE FORMATACAO DO ESCRITORIO (OBRIGATORIOS)
 ============================================================
-- Fonte: Montserrat, corpo 11pt
+- Fonte: Segoe UI, corpo 11pt
 - Alinhamento do corpo: JUSTIFICADO (sempre)
-- Espacamento entre linhas: 1,5
-- Recuo da primeira linha: 7 (a esquerda)
+- Espacamento entre linhas: "PELO MENOS" 15pt, sem espaco antes/depois do paragrafo
+- Os titulos de secao sao renderizados como TABELA 1x1 de fundo azul claro (DBE5F1),
+  com o texto em negrito + italico. Basta escrever o titulo numa linha propria;
+  o motor monta a tabela.
+- Recuo da primeira linha: 2,5cm
 - Titulos de secao com numeral alfanumerico em negrito (I., II., III., 1., 2., A), B)): NEGRITO + JUSTIFICADO, NUNCA centralizados.
 - So centralizar em pecas juridicas: enderecamento ao juizo, nome da acao, fecho (Nestes termos/pede deferimento), data e assinatura.
 

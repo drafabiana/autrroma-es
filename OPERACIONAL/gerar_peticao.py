@@ -283,7 +283,9 @@ def cmd_subir(args):
                 'range': {'startIndex': 1, 'endIndex': end_index - 1},
                 'textStyle': {
                     'fontSize': {'magnitude': 11, 'unit': 'PT'},
-                    'weightedFontFamily': {'fontFamily': 'Montserrat'},
+                    # Segoe UI nao existe no Google Docs e sera substituida na conversao;
+                    # o .docx gerado por escritorio_format.py e a versao fiel ao padrao.
+                    'weightedFontFamily': {'fontFamily': 'Segoe UI'},
                 },
                 'fields': 'fontSize,weightedFontFamily'
             }

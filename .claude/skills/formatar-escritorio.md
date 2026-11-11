@@ -1,6 +1,6 @@
 ---
 name: formatar-escritorio
-description: Aplica formatacao fiel do escritorio (Montserrat 11pt, recuo 7cm, citacoes 10pt italico, timbrado do escritorio) em texto bruto ou arquivo .docx existente. Sem chamar IA.
+description: Aplica formatacao fiel do escritorio (Segoe UI 11pt, recuo 2,5cm, entrelinhas min. 15pt, topicos em tabela azul, timbrado do escritorio) em texto bruto ou arquivo .docx existente. Sem chamar IA.
 trigger: /formatar-escritorio
 ---
 
@@ -28,11 +28,12 @@ Para gerar peca NOVA com IA, use `/peca-escritorio`.
    - `_texto_` -> italico inline
    - Marcadores markdown `#`, `##`, `###` sao limpos automaticamente
 2. Renderiza no timbrado do escritorio com formatacao FIEL:
-   - Margens 3 / 1.6 / 3 / 3 cm
-   - Montserrat 11pt (corpo)
-   - Citacoes em 10pt italico, recuo esquerdo 4cm
-   - Recuo 1a linha 7cm literais
-   - Espacamento 1.5
+   - Margens 2.5 / 2.5 / 3 / 3 cm
+   - Segoe UI 11pt (corpo)
+   - Citacoes em 11pt, recuo esquerdo 4cm
+   - Recuo 1a linha 2,5cm
+   - Entrelinhas "Pelo menos" 15pt, sem espaco entre paragrafos
+   - Topicos de secao viram tabela 1x1 de fundo azul claro (DBE5F1), texto negrito + italico
    - Nome da peca centralizado bold
    - Titulos de secao com travessao longo "–" (nao hifen)
 
@@ -66,27 +67,27 @@ PF.gerar_peca(texto, 'output.docx')
 | Item | Valor |
 |---|---|
 | Pagina | A4 (21 x 29.7 cm) |
-| Margens | top 3 / bottom 1.6 / left 3 / right 3 cm |
-| Fonte | Montserrat |
+| Margens | top 2.5 / bottom 2.5 / left 3 / right 3 cm |
+| Fonte | Segoe UI |
 | Corpo | 11 pt |
-| Citacoes (jurisprudencia/sumula) | 10 pt italico |
-| Espacamento linha | 1.5 |
-| Recuo 1a linha (corpo + pedidos) | 7 cm literais |
+| Citacoes (jurisprudencia/sumula) | 11 pt |
+| Espacamento linha | "Pelo menos" 15 pt |
+| Recuo 1a linha (corpo + pedidos) | 2,5 cm |
 | Recuo esquerdo citacoes | 4 cm |
-| space_before / space_after | None |
+| space_before / space_after | 0 |
 | Alinhamento padrao | Justificado |
 
 ## Estrutura detectada automaticamente
 
 - "EXCELENTISSIMO..." -> enderecamento (justify, bold, sem recuo)
 - "RECLAMATORIA TRABALHISTA" / "CONTESTACAO" / "REPLICA" -> nome da peca (CENTER, bold)
-- "I - ...", "II - ...", "I.I - ..." -> titulo de secao (justify, bold, travessao longo)
+- "I - ...", "II - ...", "EMENTA" -> topico: tabela 1x1 azul DBE5F1, bold + italico
 - "a) ...", "b) ..." em meio de paragrafo -> subtitulo (justify, bold)
-- "a) ...", "b) ..." na secao V/PEDIDOS -> pedido (justify, recuo 7cm)
-- Linha comecando com aspa -> citacao (10pt italico, recuo esquerdo 4cm)
+- "a) ...", "b) ..." na secao V/PEDIDOS -> pedido (justify, recuo 2,5cm)
+- Linha comecando com aspa -> citacao (11pt italico, recuo esquerdo 4cm)
 
 ## Boas praticas relacionadas
 
 - Obrigatorio gerar no timbrado do escritorio
-- Recuo 1a linha 7cm literais
+- Recuo 1a linha 2,5cm
 - Assinatura padrao: Dra. Fabiana Silva Alves Carneiro — OAB/RJ 188.762 — Rio de Janeiro/RJ

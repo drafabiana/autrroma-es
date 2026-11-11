@@ -17,4 +17,4 @@ Apos rodar o intake, execute:
 2. CPF no formato correto
 3. Endereco completo
 4. Consistencia entre ficha, contrato, procuracao e declaracao
-5. Fonte Montserrat aplicada
+5. Fonte Segoe UI 11pt aplicada

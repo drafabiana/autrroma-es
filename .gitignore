@@ -23,6 +23,8 @@ OPERACIONAL/agente_operacional/pops_cache/*
 !OPERACIONAL/agente_operacional/pops_cache/.gitkeep
 
 # Relatorios / saidas geradas
+OPERACIONAL/relatorios_prazos/
+SYNC/mapa_advbox/
 FINANCEIRO/relatorio_*.txt
 FINANCEIRO/*.xlsx
 FINANCEIRO/*.pdf
@@ -35,3 +37,24 @@ Thumbs.db
 
 # Material interno do provedor (briefing/onboarding) - nao versionar no repo do cliente
 _briefing/
+
+# Base de conhecimento - texto bruto extraido dos originais de curso
+# (material de terceiro; o original fica no Drive, so a ficha e versionada)
+BASE_CONHECIMENTO/_extraido/*
+!BASE_CONHECIMENTO/_extraido/.gitkeep
+
+# Espelhamento ADVBOX -> Infinitum (dado pessoal de cliente)
+SYNC/espelhamento/
+
+# Monitor de acordaos do TCU (cita cliente pelo nome) e lista extra de clientes
+OPERACIONAL/relatorios_tcu/
+config/tcu_clientes_extra.txt
+
+# Cache das consultas ao Jurisprudencias.ai (cota de 5/dia)
+INTEGRACOES/_cache_jurisprudencias/
+
+# Dados sensiveis (nomes de clientes, CPF) - nunca versionar
+_privado/
+
+# Log do sync ZapSign -> Drive (tokens de documentos de clientes)
+SYNC/sync_assinados_log.json

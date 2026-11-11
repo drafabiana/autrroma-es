@@ -70,8 +70,9 @@ Marcas textuais que DEVEM estar presentes:
 - Apresentacao hierarquizada e numerada: I. DOS FATOS, II. DO DIREITO, III. DOS PEDIDOS
 
 ### 6. Padrao Visual (Timbrado do Escritorio)
-- Fonte Montserrat, tamanho 11
-- Espacamento 1,5 entre linhas
+- Fonte Segoe UI, tamanho 11
+- Entrelinhas "Pelo menos" 15pt, sem espaco entre paragrafos
+- Topicos de secao viram tabela 1x1 de fundo azul claro (DBE5F1), texto negrito + italico
 - Margens justificadas
 - Titulos numerados em CAIXA ALTA E NEGRITO (I., II., III.)
 - Subtitulos em negrito
@@ -138,7 +139,8 @@ Sugestao de jurisprudencia complementar:
 - [risco 2 + sugestao de mitigacao]
 
 5. VERIFICACAO ESTETICA E TECNICA
-- Formatacao (Montserrat 11, esp. 1,5, justificado): [OK / AJUSTAR]
+- Formatacao (Segoe UI 11, entrelinhas min. 15pt, justificado, recuo 1a linha 2,5cm,
+  topicos em tabela azul DBE5F1): [OK / AJUSTAR]
 - Timbrado do escritorio: [OK / AJUSTAR]
 - Titulos hierarquizados (I., II., III. caixa alta negrito): [OK / AJUSTAR]
 - Cabecalho (vara, comarca, processo): [OK / AJUSTAR]

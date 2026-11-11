@@ -4,10 +4,10 @@ Motor de templates DOCX para gerar pecas no timbrado do escritorio.
 Abre o template (com cabecalho/rodape/logo do escritorio), apaga o conteudo
 do corpo (preservando section, headers e footers) e insere o texto gerado
 pela IA com formatacao padrao do escritorio:
-  - Fonte Montserrat 11pt
+  - Fonte Segoe UI 11pt
   - Justificado
-  - Espacamento 1.5
-  - Recuo de primeira linha 7pt (ajustavel)
+  - Entrelinhas "Pelo menos" 15pt, sem espaco entre paragrafos
+  - Recuo de primeira linha 2,5cm (ajustavel)
   - Negrito via **texto**
   - Italico via _texto_
   - Titulos: linha INTEIRAMENTE EM MAIUSCULAS = titulo (negrito, sem recuo)
@@ -19,7 +19,7 @@ import logging
 from pathlib import Path
 from docx import Document
 from docx.shared import Pt, Cm, RGBColor
-from docx.enum.text import WD_ALIGN_PARAGRAPH
+from docx.enum.text import WD_ALIGN_PARAGRAPH, WD_LINE_SPACING
 
 from .config import TIMBRADO_PATH
 
@@ -27,9 +27,12 @@ log = logging.getLogger('agente_op.template')
 
 TEMPLATE_PATH = TIMBRADO_PATH
 
-FONTE = 'Montserrat'
+# Padrao medido nas pecas reais - ver .claude/rules/padroes-documentos.md
+FONTE = 'Segoe UI'
 TAM_CORPO = Pt(11)
-RECUO_PRIMEIRA = Cm(0.7)
+# "Pelo menos" 15pt no dialogo Paragrafo do Word (w:lineRule="atLeast").
+ENTRELINHAS = Pt(15)
+RECUO_PRIMEIRA = Cm(2.5)
 
 
 def _limpar_corpo(doc):
@@ -52,11 +55,12 @@ def _aplicar_estilo_run(run, bold=False, italic=False):
 
 def _add_paragrafo(doc, texto, *, alinhamento=WD_ALIGN_PARAGRAPH.JUSTIFY,
                    negrito_total=False, italic_total=False, recuo=True,
-                   espaco_depois=Pt(6)):
+                   espaco_depois=Pt(0)):
     p = doc.add_paragraph()
     p.alignment = alinhamento
     pf = p.paragraph_format
-    pf.line_spacing = 1.5
+    pf.line_spacing = ENTRELINHAS
+    pf.line_spacing_rule = WD_LINE_SPACING.AT_LEAST
     pf.space_after = espaco_depois
     if recuo:
         pf.first_line_indent = RECUO_PRIMEIRA
@@ -299,15 +303,16 @@ def gerar_peca_no_template(texto_peca: str, output_path: str | Path,
             _add_paragrafo(doc, bloco,
                            alinhamento=WD_ALIGN_PARAGRAPH.JUSTIFY,
                            negrito_total=True, recuo=False,
-                           espaco_depois=Pt(8))
+                           espaco_depois=Pt(0))
         # 4) CITACAO (sumula, jurisprudencia, etc) -> recuo 4cm + italico
         elif _eh_citacao(bloco):
             p = doc.add_paragraph()
             p.alignment = WD_ALIGN_PARAGRAPH.JUSTIFY
             pf = p.paragraph_format
-            pf.line_spacing = 1.5
+            pf.line_spacing = ENTRELINHAS
+            pf.line_spacing_rule = WD_LINE_SPACING.AT_LEAST
             pf.left_indent = Cm(4)
-            pf.space_after = Pt(6)
+            pf.space_after = Pt(0)
             r = p.add_run(bloco)
             _aplicar_estilo_run(r, italic=True)
         # 5) PARAGRAFO COMUM

@@ -297,3 +297,49 @@ Estamos a disposicao para qualquer duvida.
     ok = enviar_mensagem_texto(user_ns, mensagem)
     print('   Mensagem enviada!' if ok else '   ERRO ao enviar')
     return ok
+
+
+# ============================================================
+# TESTE DE CONEXAO (somente leitura - nao envia nada)
+# ============================================================
+
+def testar_conexao():
+    """Confere token e acesso a API. Retorna True se respondeu 200."""
+    headers = get_headers()
+    if not headers:
+        print('ATENDE_DIREITO_TOKEN vazio em config/.env - preencher e rodar de novo.')
+        return False
+    try:
+        r = requests.get(f'{BASE_URL}/subscribers?page=1&limit=100',
+                         headers=headers, timeout=30)
+    except Exception as e:
+        print(f'Sem conexao com {BASE_URL}: {e}')
+        return False
+    if r.status_code == 401:
+        print('Token recusado (401) - conferir se foi copiado inteiro, sem espacos.')
+        return False
+    if r.status_code != 200:
+        print(f'API respondeu {r.status_code}: {r.text[:200]}')
+        return False
+    subs = (r.json() or {}).get('data') or []
+    mais = ' (ha mais paginas)' if len(subs) >= 100 else ''
+    print(f'OK - conectado ao Atende Direito. Contatos na 1a pagina: {len(subs)}{mais}')
+    return True
+
+
+if __name__ == '__main__':
+    import sys
+    from dotenv import load_dotenv
+    load_dotenv(os.path.join(os.path.dirname(__file__), '..', 'config', '.env'))
+
+    # Uso:
+    #   python INTEGRACOES/atendedireito_integration.py            -> testa conexao
+    #   python INTEGRACOES/atendedireito_integration.py buscar TEL -> procura contato
+    if len(sys.argv) >= 3 and sys.argv[1] == 'buscar':
+        c = buscar_contato_por_telefone(sys.argv[2])
+        if c:
+            print(f'Encontrado: {c.get("name", "")} - user_ns {extrair_user_ns(c)}')
+        else:
+            print('Contato nao encontrado (ou token ausente).')
+    else:
+        sys.exit(0 if testar_conexao() else 1)

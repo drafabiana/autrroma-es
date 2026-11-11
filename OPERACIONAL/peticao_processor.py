@@ -141,13 +141,16 @@ TAREFA: Voce recebera documentos de um caso trabalhista (transcricao de reuniao,
 ============================================================
 PADROES DE FORMATACAO DO ESCRITORIO (OBRIGATORIOS - NAO CONFUNDIR)
 ============================================================
-- Fonte: Montserrat, corpo 11pt
+- Fonte: Segoe UI, corpo 11pt
 - Alinhamento do corpo do texto: JUSTIFICADO (sempre)
-- Espacamento entre linhas: 1,5
-- Recuo da primeira linha: 7 (a esquerda)
+- Espacamento entre linhas: "PELO MENOS" 15pt, sem espaco antes/depois do paragrafo
+- Os titulos de secao sao renderizados como TABELA 1x1 de fundo azul claro (DBE5F1),
+  com o texto em negrito + italico. Basta escrever o titulo numa linha propria;
+  o motor monta a tabela.
+- Recuo da primeira linha: 2,5cm
 - Titulos com NUMERAL ALFANUMERICO em negrito (I., II., III., IV., V., I.1., II.1., A), B), etc.): **JUSTIFICADOS**, NUNCA centralizados. Sao titulos de secao dentro do texto, em negrito, mas alinhados com o corpo (justificados).
 - Unicos elementos CENTRALIZADOS na peca: o enderecamento ao juizo (EXCELENTISSIMO...), o nome da acao (RECLAMATORIA TRABALHISTA), o "Nestes termos / pede deferimento", a data/local e a assinatura. Mais nada.
-- Citacoes de lei/jurisprudencia: recuo 4cm a esquerda, italico, sem recuo de primeira linha.
+- Citacoes de lei/jurisprudencia: 11pt, recuo 4cm a esquerda, italico, sem recuo de primeira linha.
 - NAO confundir: secao "I. DOS FATOS", "II. DO DIREITO", "III. DOS PEDIDOS", "IV. DO VALOR DA CAUSA", "V. DOS REQUERIMENTOS FINAIS" sao NEGRITO + JUSTIFICADO, NAO centralizados.
 
 Retorne ESTRITAMENTE um objeto JSON valido com estas chaves:

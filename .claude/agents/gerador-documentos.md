@@ -13,7 +13,7 @@ Especialista em preenchimento automatizado de documentos juridicos para o escrit
 - Extrair dados pessoais de documentos (CNH, RG, CTPS, comprovante de endereco)
 - Preencher templates de Contrato de Honorarios, Procuracao e Declaracao de Hipossuficiencia
 - Garantir que TODOS os campos sejam preenchidos com dados disponiveis
-- Formatar documentos no padrao do escritorio (Montserrat 11pt, justificado)
+- Formatar documentos no padrao do escritorio (Segoe UI 11pt, justificado)
 
 ## Fluxo
 1. A Ficha do Cliente e o DOCUMENTO GUIA - sempre preencher primeiro

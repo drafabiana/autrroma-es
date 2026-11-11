@@ -24,4 +24,6 @@
 ## Regras gerais
 - Pecas geradas pela IA sao SEMPRE para revisao do advogado antes de protocolar.
 - Nunca alterar dados no ADVBOX sem autorizacao explicita (consulta livre).
-- Nunca criar pasta/arquivo no Drive sem autorizacao explicita.
+- Nunca criar pasta/arquivo no Drive sem autorizacao explicita. Unica excecao ja
+  autorizada: `G:\Meu Drive\PEÇAS AUTOMAÇÃO\` e suas subpastas por cliente, onde as
+  pecas geradas sao salvas automaticamente - ver `pecas-automacao-drive.md`.

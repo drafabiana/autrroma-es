@@ -19,10 +19,10 @@
 | E-mail | dra.fabiana@alvescarneiroadvocaciaeconsultoriajuridica.com |
 | Áreas | Previdenciário (BPC/LOAS, aposentadorias, benefícios por incapacidade, pensão por morte) e Militar (PAD/Conselhos de Disciplina/Justificação, reforma, promoção, pensão militar, Mandado de Segurança) |
 | Abrangência geográfica | Rio de Janeiro/RJ |
-| Sistema jurídico em uso | **Não confirmado.** Nenhuma informação recebida sobre ADVBOX ou qualquer outro sistema de gestão jurídica — a confirmar no onboarding (briefing ainda não preenchido). |
+| Sistema jurídico em uso | **ADVBOX — confirmado e integrado em 03/09/2026.** Conta ativa: 179 clientes, 212 processos (115 ativos), 158 transações. Token em `config/.env`. Plano de contas, fases e tipos de processo já configurados pelo escritório (grupos Previdenciário, Previdenciário Militar, Administrativo Exército/Marinha/FAB/INSS). |
 | CRM/atendimento | **Não confirmado.** Nenhuma ferramenta contratada foi informada. |
 | Agente de IA | CARNEIRO.IA |
-| Timbrado | **Ainda não recebido.** `config/timbrado_modelo.docx` precisa ser fornecido pelo escritório (ver `config/timbrado_modelo.LEIA-ME.txt`). |
+| Timbrado | **Disponível.** `config/timbrado_modelo.docx` — extraído da peça real uma peticao inicial do escritorio (Drive do escritório): logo no cabeçalho, marca d'água "A" e rodapé de contato. Não versionado (ver `config/timbrado_modelo.LEIA-ME.txt`). |
 | Sócia de negócio | Dra. Kênia Helena de Araújo (Silva e Araújo Sociedade de Advogados, Patos de Minas/MG) — contrato individualizado, **não misturar dados dos dois escritórios neste repositório**. |
 | Pacote contratado | Titanium (Casal da IA) |
 
@@ -44,7 +44,7 @@ AGENTE_OP_PORT=8787
 ```
 
 - IDs de pasta do Drive → vazios.
-- IDs de usuário do ADVBOX → vazios, dependentes de confirmação se o escritório usa ADVBOX.
+- IDs de usuário do ADVBOX → **preenchidos** (240863 = Dra. Fabiana; 295602 = Lívia Paula).
 
 ## 3. Equipe / usuários → config central
 
@@ -52,7 +52,7 @@ Nunca hardcodar pessoas; usar `config/equipe.py` (ou env) com placeholders:
 
 ```python
 USUARIOS_ADVBOX = {
-    "RESPONSAVEL": None,   # TODO: ID ADVBOX da Dra. Fabiana Silva Alves Carneiro (se houver ADVBOX)
+    "RESPONSAVEL": 240863, # ID ADVBOX da Dra. Fabiana Silva Alves Carneiro (via .env)
     "OPERACIONAL": None,   # ID de quem recebe tarefas operacionais
     "FINANCEIRO": None,
 }
@@ -70,10 +70,15 @@ Cadastrar no onboarding, em `config/regras_financeiras.py`:
 
 ## 5. Formatação de peças
 
-- Motor de formatação padrão: Montserrat 11pt, justificado, espaçamento 1,5,
-  recuo de 1ª linha 7cm, citações recuadas em itálico (padrão PAB — confirmar
-  com a Dra. Fabiana se mantém ou tem preferência própria).
-- Timbrado: `config/timbrado_modelo.docx` — **ainda não recebido**.
+- Motor de formatação: **Segoe UI 11pt**, justificado, entrelinhas "Pelo menos"
+  15pt, sem espaço entre parágrafos, recuo de 1ª linha 2,5cm, citações em itálico
+  com recuo esquerdo de 4cm, margens 2,5/2,5/3,0/3,0cm, e **tópicos em tabela 1x1
+  de fundo azul claro (DBE5F1) com o título em negrito + itálico** — valores
+  **medidos na peça real protocolada pela Dra. Fabiana**
+  (`emenda de uniao estavel (peca-modelo)`), que substituiu
+  o padrão Ebrima 12pt anterior. Detalhe bloco a bloco em
+  `.claude/rules/padroes-documentos.md`.
+- Timbrado: `config/timbrado_modelo.docx` — **disponível**.
 - Assinatura padrão das peças: **Dra. Fabiana Silva Alves Carneiro — OAB/RJ
   188.762 — Rio de Janeiro/RJ**.
 - Previdenciário e Militar usam bases genéricas — ver `agentes_claude/carneiro-previdenciario.md`
@@ -108,8 +113,6 @@ Estes dados vieram da conversa de contratação, não do formulário de briefing
 
 - Razão social: FABIANA SILVA ALVES CARNEIRO SOCIEDADE INDIVIDUAL DE ADVOCACIA
 - CNPJ: 35.254.227/0001-48
-- CPF: 091.739.027-05
-- RG: 11230416-7
 - Endereço: Avenida Nelson Cardoso nº 309, salas 718 e 719, Tanque, Rio de Janeiro – RJ
   (a própria Dra. Fabiana avisou que na Receita Federal ainda consta sala 610 — confirmar
   qual endereço usar nos documentos)

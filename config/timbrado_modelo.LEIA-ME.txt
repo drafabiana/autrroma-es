@@ -2,25 +2,41 @@
  TIMBRADO DO ESCRITORIO - Alves Carneiro Advocacia e Consultoria Jurídica
 ===========================================================================
 
-O agente operacional (CARNEIRO.IA) gera TODA peca juridica no papel timbrado do
-escritorio. Para isso, o escritorio deve fornecer o timbrado DELE neste local:
+STATUS: FORNECIDO. O arquivo config/timbrado_modelo.docx ja existe.
 
-    config/timbrado_modelo.docx
+ORIGEM:
+  Extraido da peca real uma peticao inicial do escritorio (Google Drive do escritorio,
+  G:\Meu Drive) - peticao inicial previdenciaria protocolada no JEF/RJ em
+  23/03/2022, assinada pela Dra. Fabiana Silva Alves Carneiro (OAB/RJ 188.762).
+  Foram mantidos cabecalho, marca d'agua, rodape, estilos, margens e fontes;
+  o corpo da peca e as imagens do corpo foram removidos (12,3 MB -> ~137 KB).
 
-REQUISITOS DO ARQUIVO:
-  - Formato: .docx (Microsoft Word).
-  - Deve conter o cabecalho, a logo e o rodape oficiais do escritorio
-    (definidos como HEADER e FOOTER da secao do Word).
-  - O CORPO do documento pode estar vazio: o motor limpa o corpo e insere a
-    peca gerada, preservando cabecalho, rodape e margens.
-  - Margens sugeridas (padrao do escritorio): topo 3cm, base 1,6cm,
-    esquerda 3cm, direita 3cm. O motor reaplica essas margens.
+CONTEUDO DO TIMBRADO:
+  - Cabecalho: logo "ALVES CARNEIRO - Advocacia & Consultoria Jurídica";
+  - Marca d'agua: monograma "A" em cinza claro, ao centro de cada pagina;
+  - Rodape: (21) 3042-6441 | (21) 99485-7337 |
+            www.alvescarneiroadvocaciaeconsultoriajuridica.com |
+            dra.fabiana@alvescarneiroadvocaciaeconsultoriajuridica.com |
+            Av. Nelson Cardoso 309, Sl. 610, Tanque, Rio de Janeiro/RJ,
+            CEP 22730-000.
+
+PAGINA E MARGENS (ja gravadas no arquivo):
+  A4 | topo 2,5cm | base 2,5cm | esquerda 3,0cm | direita 3,0cm
+  distancia do cabecalho e do rodape: 0,5cm
+
+COMO O MOTOR USA:
+  OPERACIONAL/agente_operacional/escritorio_format.py abre este arquivo, limpa
+  o corpo e insere a peca gerada, preservando cabecalho, marca d'agua, rodape
+  e margens. O padrao de escrita aplicado esta em
+  .claude/rules/padroes-documentos.md (Ebrima 12pt, justificado, espacamento
+  simples, recuo de 1a linha 2,5cm, citacoes 11pt com recuo esquerdo de 4cm).
 
 OBSERVACOES:
-  - NENHUM timbrado de outro escritorio acompanha esta entrega. Este arquivo e
-    apenas a instrucao; o .docx real e responsabilidade do escritorio.
-  - Enquanto config/timbrado_modelo.docx nao existir, a geracao de pecas falha
-    com erro explicito ("Timbrado nao encontrado").
-  - NAO versionar o timbrado em repositorio publico se ele contiver dados
-    sensiveis (assinaturas, registros internos).
+  - Este arquivo NAO vai para o git (.gitignore). Em maquina nova ou no deploy
+    da VPS, copiar manualmente (ver docs/DEPLOY_VPS.md) ou reextrair de uma
+    peca real do Drive.
+  - Se o escritorio trocar de identidade visual, basta substituir o .docx aqui:
+    o motor nao depende de nada alem do cabecalho/rodape/margens da secao.
+  - Para casos conduzidos em parceria com a Dra. Priscila Damasceno, o timbrado
+    e outro (Damasceno Santos Advocacia e Consultoria) - nao usar este arquivo.
 ===========================================================================

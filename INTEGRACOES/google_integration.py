@@ -13,8 +13,54 @@ from googleapiclient.errors import HttpError
 SCOPES = [
     'https://www.googleapis.com/auth/drive',
     'https://www.googleapis.com/auth/documents',
-    'https://www.googleapis.com/auth/spreadsheets'
+    'https://www.googleapis.com/auth/spreadsheets',
+    # So ENVIO - nao le a caixa de entrada. Usado pelos relatorios de prazos e do
+    # TCU quando SMTP_PASSWORD esta vazio (ver enviar_email_gmail()).
+    'https://www.googleapis.com/auth/gmail.send',
 ]
+GMAIL_SEND_SCOPE = 'https://www.googleapis.com/auth/gmail.send'
+_CONFIG_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'config')
+TOKEN_PATH = os.path.join(_CONFIG_DIR, 'token.json')
+
+
+def gmail_disponivel():
+    """True se o token OAuth salvo (config/token.json) tem permissao de envio do Gmail."""
+    if not os.path.exists(TOKEN_PATH):
+        return False
+    try:
+        import json
+        with open(TOKEN_PATH, encoding='utf-8') as f:
+            escopos = json.load(f).get('scopes') or []
+        return GMAIL_SEND_SCOPE in escopos
+    except Exception:
+        return False
+
+
+def enviar_email_gmail(msg):
+    """
+    Envia um email.message.EmailMessage pela API do Gmail, com o token ja salvo.
+
+    Nunca abre navegador (roda em tarefa agendada): sem token valido, levanta erro
+    com a instrucao de refazer o login (python INTEGRACOES/google_integration.py).
+    O remetente e a conta Google do token; o Gmail ignora um From diferente que
+    nao seja alias cadastrado.
+    """
+    import base64
+    if not gmail_disponivel():
+        raise RuntimeError('token sem permissao gmail.send - refaca o login: '
+                           'python INTEGRACOES/google_integration.py')
+    creds = Credentials.from_authorized_user_file(TOKEN_PATH)
+    if not creds.valid:
+        if creds.expired and creds.refresh_token:
+            creds.refresh(Request())
+            with open(TOKEN_PATH, 'w') as token:
+                token.write(creds.to_json())
+        else:
+            raise RuntimeError('token do Google invalido - refaca o login: '
+                               'python INTEGRACOES/google_integration.py')
+    servico = build('gmail', 'v1', credentials=creds, cache_discovery=False)
+    bruto = base64.urlsafe_b64encode(msg.as_bytes()).decode('ascii')
+    return servico.users().messages().send(userId='me', body={'raw': bruto}).execute()
 
 def autenticar_google():
     """
@@ -361,3 +407,13 @@ def preencher_documento(docs_service, document_id: str, dados: dict):
         print(f"ERRO DE API DOCS: Houve um erro ao formatar o texto do arquivo.")
         print(f"Detalhes: {error}")
         sys.exit(1)
+
+
+if __name__ == '__main__':
+    # Login (uma vez, abre o navegador) + teste de conexao.
+    #   python INTEGRACOES/google_integration.py
+    # Refazer quando a lista SCOPES mudar: apague config/token.json antes.
+    drive, _ = autenticar_google()
+    usuario = drive.about().get(fields='user(emailAddress)').execute()['user']
+    print('Drive OK - conta:', usuario['emailAddress'])
+    print('Envio pelo Gmail:', 'liberado' if gmail_disponivel() else 'SEM permissao gmail.send')

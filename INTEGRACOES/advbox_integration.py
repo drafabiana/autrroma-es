@@ -10,6 +10,7 @@ import os
 import sys
 import time
 import json
+import unicodedata
 import requests
 from functools import lru_cache
 
@@ -20,6 +21,15 @@ ADVBOX_BASE_URL = 'https://app.advbox.com.br/api/v1'
 _settings_cache = None
 _settings_timestamp = 0
 CACHE_TTL = 3600  # 1 hora
+
+
+def _norm(texto):
+    """Maiusculas sem acento - o ADVBOX devolve settings acentuados (CREDITO/DEBITO,
+    INDICACAO, PREVIDENCIARIO). Comparar sem normalizar nunca casa."""
+    if texto is None:
+        return ''
+    s = unicodedata.normalize('NFKD', str(texto))
+    return ''.join(c for c in s if not unicodedata.combining(c)).upper().strip()
 
 
 def _get_token():
@@ -80,25 +90,61 @@ def carregar_settings(force=False):
     if not force and _settings_cache and (time.time() - _settings_timestamp) < CACHE_TTL:
         return _settings_cache
     print('  Carregando settings ADVBOX...')
-    data = _request('GET', '/settings')
+    data = _normalizar_settings(_request('GET', '/settings'))
     _settings_cache = data
     _settings_timestamp = time.time()
     return data
+
+
+def _normalizar_settings(data):
+    """Achata o payload de /settings para as chaves que o resto do modulo espera.
+
+    O ADVBOX devolve bancos/categorias/centros de custo aninhados em
+    settings['financial'] e o tipo de processo em settings['lawsuit_types'].
+    Aqui eles sao promovidos para o topo (e 'type_lawsuits' fica como alias)
+    para nao quebrar quem ja consome esses nomes.
+    """
+    if not isinstance(data, dict):
+        return data or {}
+    financial = data.get('financial') or {}
+    if isinstance(financial, dict):
+        for chave in ('banks', 'categories', 'cost_centers', 'departments'):
+            data.setdefault(chave, financial.get(chave, []))
+    if 'lawsuit_types' in data:
+        data.setdefault('type_lawsuits', data['lawsuit_types'])
+    elif 'type_lawsuits' in data:
+        data.setdefault('lawsuit_types', data['type_lawsuits'])
+    return data
+
+
+def usuario_padrao(settings=None):
+    """ID do usuario responsavel: ADVBOX_USER_RESPONSAVEL do .env; se vazio,
+    o primeiro usuario das settings (fallback)."""
+    do_env = os.getenv('ADVBOX_USER_RESPONSAVEL', '').strip()
+    if do_env:
+        try:
+            return int(do_env)
+        except ValueError:
+            return do_env
+    settings = settings or carregar_settings()
+    users = settings.get('users', [])
+    return users[0]['id'] if users else None
 
 
 def buscar_id_por_nome(tipo, nome_parcial):
     """Busca ID em settings por nome parcial. tipo: 'users', 'origins', 'stages', 'categories', etc."""
     settings = carregar_settings()
     items = settings.get(tipo, [])
-    nome_upper = nome_parcial.upper()
+    alvo = _norm(nome_parcial)
     # Mapear campo de nome conforme o tipo
     campo = {
         'users': 'name', 'origins': 'origin', 'stages': 'stage',
-        'type_lawsuits': 'type', 'banks': 'name', 'categories': 'category',
+        'tasks': 'task', 'lawsuit_types': 'type', 'type_lawsuits': 'type',
+        'banks': 'name', 'categories': 'category',
         'cost_centers': 'cost_center', 'departments': 'department'
     }.get(tipo, 'name')
     for item in items:
-        if nome_upper in str(item.get(campo, '')).upper():
+        if alvo in _norm(item.get(campo, '')):
             return item['id']
     return None
 
@@ -143,11 +189,10 @@ def cadastrar_cliente(dados_cliente, user_id=None, origin_id=None):
     settings = carregar_settings()
 
     if not user_id:
-        users = settings.get('users', [])
-        user_id = users[0]['id'] if users else None
+        user_id = usuario_padrao(settings)
 
     if not origin_id:
-        origin_id = buscar_id_por_nome('origins', 'INDICA')
+        origin_id = buscar_id_por_nome('origins', os.getenv('ADVBOX_ORIGEM_PADRAO') or 'INDICACAO')
         if not origin_id:
             origins = settings.get('origins', [])
             origin_id = origins[0]['id'] if origins else None
@@ -251,20 +296,27 @@ def cadastrar_processo(cliente_id, dados_processo, user_id=None):
     settings = carregar_settings()
 
     if not user_id:
-        users = settings.get('users', [])
-        user_id = users[0]['id'] if users else None
+        user_id = usuario_padrao(settings)
 
-    # Buscar tipo TRABALHISTA por padrao
-    tipo_id = buscar_id_por_nome('type_lawsuits', 'TRABALHISTA')
+    # Tipo do processo: informado no caso > ADVBOX_TIPO_PROCESSO_PADRAO (.env).
+    # Sem cair no "primeiro tipo da lista": os tipos do escritorio vao de
+    # PREVIDENCIARIO a ADMINISTRATIVO EXERCITO, e chutar o primeiro cadastra
+    # o processo na area errada.
+    tipo_nome = dados_processo.get('tipo') or os.getenv('ADVBOX_TIPO_PROCESSO_PADRAO', '')
+    tipo_id = dados_processo.get('tipo_id') or (
+        buscar_id_por_nome('lawsuit_types', tipo_nome) if tipo_nome else None
+    )
     if not tipo_id:
-        tipos = settings.get('type_lawsuits', [])
-        tipo_id = tipos[0]['id'] if tipos else None
+        print(f'ERRO: tipo de processo nao encontrado no ADVBOX: {tipo_nome or "(nao informado)"}')
+        print('      Defina ADVBOX_TIPO_PROCESSO_PADRAO no config/.env ou passe dados_processo["tipo"].')
+        return None
 
-    # Buscar stage inicial (NEGOCIACAO ou primeiro disponivel)
-    stage_id = buscar_id_por_nome('stages', 'NEGOC')
+    # Fase inicial: informada > ADVBOX_STAGE_PADRAO (.env) > ANALISE DO CASO.
+    stage_nome = dados_processo.get('fase') or os.getenv('ADVBOX_STAGE_PADRAO') or 'ANALISE DO CASO'
+    stage_id = dados_processo.get('fase_id') or buscar_id_por_nome('stages', stage_nome)
     if not stage_id:
-        stages = settings.get('stages', [])
-        stage_id = stages[0]['id'] if stages else None
+        print(f'ERRO: fase (stage) nao encontrada no ADVBOX: {stage_nome}')
+        return None
 
     payload = {
         'users_id': user_id,
@@ -344,8 +396,7 @@ def criar_transacao(tipo, valor, data_vencimento, categoria_id, banco_id,
     settings = carregar_settings()
 
     if not user_id:
-        users = settings.get('users', [])
-        user_id = users[0]['id'] if users else None
+        user_id = usuario_padrao(settings)
 
     payload = {
         'users_id': user_id,
@@ -398,13 +449,13 @@ def buscar_categoria(nome_parcial, tipo_entry='income'):
     settings = carregar_settings()
     tipo_cat = 'CREDITO' if tipo_entry == 'income' else 'DEBITO'
     categorias = settings.get('categories', [])
-    nome_upper = nome_parcial.upper()
+    alvo = _norm(nome_parcial)
     for cat in categorias:
-        if nome_upper in str(cat.get('category', '')).upper() and cat.get('type') == tipo_cat:
+        if alvo in _norm(cat.get('category')) and _norm(cat.get('type')) == tipo_cat:
             return cat['id']
     # Fallback: primeira categoria do tipo
     for cat in categorias:
-        if cat.get('type') == tipo_cat:
+        if _norm(cat.get('type')) == tipo_cat:
             return cat['id']
     return None
 
@@ -416,9 +467,9 @@ def buscar_banco(nome_parcial=None):
     if not bancos:
         return None
     if nome_parcial:
-        nome_upper = nome_parcial.upper()
+        alvo = _norm(nome_parcial)
         for b in bancos:
-            if nome_upper in str(b.get('name', '')).upper():
+            if alvo in _norm(b.get('name')):
                 return b['id']
     return bancos[0]['id']
 
@@ -430,9 +481,9 @@ def buscar_centro_custo(nome_parcial=None):
     if not centros:
         return None
     if nome_parcial:
-        nome_upper = nome_parcial.upper()
+        alvo = _norm(nome_parcial)
         for c in centros:
-            if nome_upper in str(c.get('cost_center', '')).upper():
+            if alvo in _norm(c.get('cost_center')):
                 return c['id']
     return centros[0]['id']
 
@@ -509,9 +560,9 @@ def buscar_tipo_tarefa(nome_parcial):
     """Busca ID de tipo de tarefa por nome parcial nas settings."""
     settings = carregar_settings()
     tasks = settings.get('tasks', [])
-    nome_upper = nome_parcial.upper()
+    alvo = _norm(nome_parcial)
     for t in tasks:
-        if nome_upper in t.get('task', '').upper():
+        if alvo in _norm(t.get('task')):
             return t['id']
     return None
 
@@ -648,7 +699,11 @@ def listar_tarefas(user_name=None, user_id=None, lawsuit_id=None,
         registros = data.get('data', [])
         todas.extend(registros)
         total = data.get('totalCount', 0)
-        if len(todas) >= total or not registros:
+        # Pagina curta = fim. Nao confiar so no totalCount: com filtro de
+        # deadline o /posts devolve totalCount MAIOR que o conjunto filtrado
+        # (ex.: 8 registros com totalCount=9), e o loop gastava uma segunda
+        # chamada inutil - cada GET /posts leva ~60s.
+        if len(registros) < limit or not registros or len(todas) >= total:
             break
         params['offset'] += limit
     return todas
@@ -697,7 +752,8 @@ def testar_conexao():
         banks = settings.get('banks', [])
         cost_centers = settings.get('cost_centers', [])
         stages = settings.get('stages', [])
-        types = settings.get('type_lawsuits', [])
+        types = settings.get('lawsuit_types', [])
+        tasks = settings.get('tasks', [])
 
         print(f'  Conexao OK!')
         print(f'  Usuarios: {len(users)}')
@@ -707,8 +763,6 @@ def testar_conexao():
         for o in origins:
             print(f'    - {o["origin"]} (ID: {o["id"]})')
         print(f'  Categorias financeiras: {len(categories)}')
-        for c in categories:
-            print(f'    - [{c.get("type", "?")}] {c["category"]} (ID: {c["id"]})')
         print(f'  Bancos/Contas: {len(banks)}')
         for b in banks:
             print(f'    - {b["name"]} (ID: {b["id"]})')
@@ -717,6 +771,7 @@ def testar_conexao():
             print(f'    - {cc["cost_center"]} (ID: {cc["id"]})')
         print(f'  Fases (stages): {len(stages)}')
         print(f'  Tipos processo: {len(types)}')
+        print(f'  Tipos de tarefa: {len(tasks)}')
         return True
     except Exception as e:
         print(f'  ERRO: {e}')

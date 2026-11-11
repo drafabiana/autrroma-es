@@ -24,11 +24,12 @@ Use esta skill em vez de gerar texto neutro de IA com `template_engine.py`.
    - Tese subsidiaria sempre + ataque a ma-fe explicito
 4. Limpa marcadores markdown
 5. Renderiza no timbrado do escritorio com formatacao FIEL:
-   - Montserrat 11pt (citacoes 10pt italico)
-   - Recuo 1a linha 7cm literais
-   - Margens 3/1.6/3/3 cm
+   - Segoe UI 11pt (citacoes 11pt em italico)
+   - Recuo 1a linha 2,5cm
+   - Margens 2.5/2.5/3/3 cm
    - Citacoes com recuo esquerdo 4cm
-   - Espacamento 1.5
+   - Entrelinhas "Pelo menos" 15pt, sem espaco entre paragrafos
+   - Topicos de secao viram tabela 1x1 de fundo azul claro (DBE5F1), texto negrito + italico
 
 ## Como invocar
 
@@ -74,7 +75,7 @@ que invoca `peca_escritorio_engine.produzir_peca()` com os dados recebidos do ca
 
 ```
 OPERACIONAL/agente_operacional/
-├── escritorio_format.py         # formatador fiel (Montserrat 11, recuo 7cm, etc)
+├── escritorio_format.py         # formatador fiel (Segoe UI 11, recuo 2,5cm, etc)
 ├── peca_escritorio_engine.py    # engine: gera texto Opus + formata
 ├── timbrado_modelo.docx         # timbrado do escritorio (cabecalho/logo/rodape)
 └── REFERENCIAS/
@@ -88,9 +89,9 @@ OPERACIONAL/agente_operacional/
 ## Resultado esperado (peca formatada)
 
 - Texto integral no timbrado do escritorio
-- Montserrat (corpo 11pt | citacoes 10pt italico)
-- Paragrafos com recuo de 1a linha 7cm literais
-- Margens 3.0 / 1.6 / 3.0 / 3.0 cm
+- Segoe UI 11pt (corpo | citacoes em italico)
+- Paragrafos com recuo de 1a linha 2,5cm
+- Margens 2.5 / 2.5 / 3.0 / 3.0 cm
 - Vocabulario-marca do escritorio aplicado (vocativos, conectivos)
 - Jurisprudencia verificada incluida em bloco
 
@@ -102,5 +103,5 @@ Dra. Fabiana Silva Alves Carneiro — OAB/RJ 188.762 — Rio de Janeiro/RJ
 
 - Sempre usar Opus para producao de pecas juridicas
 - Toda peca gerada no timbrado do escritorio (nunca em folha branca)
-- Recuo de 1a linha 7cm literais
+- Recuo de 1a linha 2,5cm
 - A peca segue para a Revisora de Controladoria antes do protocolo

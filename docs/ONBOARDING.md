@@ -41,7 +41,8 @@ Nenhuma credencial foi recebida ate a criacao deste repositorio. Confirmar com o
 Dra. Fabiana, uma a uma:
 
 - [ ] **ANTHROPIC_API_KEY** — chave da API Claude (console.anthropic.com).
-- [ ] **ADVBOX_API_TOKEN** — SE o escritorio usar ADVBOX (a confirmar).
+- [x] **ADVBOX_API_TOKEN** — recebido e configurado em 03/09/2026. Conexao
+      validada (`python INTEGRACOES/advbox_integration.py`).
 - [ ] **ASAAS_API_TOKEN** — SE usar Asaas para cobranca (a confirmar).
 - [ ] **ZAPSIGN_API_TOKEN** — SE for usar assinatura digital via ZapSign.
 - [ ] **ATENDE_DIREITO_TOKEN** — SE for usar CRM/WhatsApp Atende Direito.
@@ -64,14 +65,18 @@ Ja vem com os defaults do Alves Carneiro Advocacia e Consultoria Jurídica. Conf
 
 ## 3. Usuarios ADVBOX (config/.env + config/equipe.py)
 
-SE o escritorio usar ADVBOX, no painel ADVBOX > Usuarios, pegue os IDs e preencha:
-- [ ] **ADVBOX_USER_RESPONSAVEL** — ID da Dra. Fabiana Silva Alves Carneiro.
-- [ ] ADVBOX_USER_OPERACIONAL — ID de quem recebe tarefas operacionais.
-- [ ] ADVBOX_USER_FINANCEIRO — ID de quem lanca transacoes financeiras.
-- [ ] ADVBOX_USER_FROM — ID do usuario que "assina" as tarefas (/posts).
-- [ ] ADVBOX_USER_AGENTE — ID da conta-agente (CARNEIRO.IA) que recebe as
-      tarefas do robo.
-- [ ] ADVBOX_TASK_TYPE_ACOMPANHAMENTO — ID do tipo de tarefa de acompanhamento.
+Preenchidos em 03/09/2026 a partir de GET /settings:
+- [x] **ADVBOX_USER_RESPONSAVEL** = 240863 (Dra. Fabiana Silva Alves Carneiro).
+- [x] ADVBOX_USER_OPERACIONAL = 240863 — **decisao pendente da Dra. Fabiana**:
+      manter na conta dela ou passar para LIVIA PAULA (295602).
+- [x] ADVBOX_USER_FINANCEIRO = 240863.
+- [x] ADVBOX_USER_FROM = 240863.
+- [x] ADVBOX_USER_AGENTE = 240863 — nao ha conta-agente separada no ADVBOX; se a
+      Dra. Fabiana quiser isolar o CARNEIRO.IA, criar um usuario proprio e trocar.
+- [x] ADVBOX_TASK_TYPE_ACOMPANHAMENTO = 8016440 (CONFERIR/REVISAR PETICAO).
+- [ ] ADVBOX_TIPO_PROCESSO_PADRAO — deixado VAZIO de proposito (previdenciario e
+      militar convivem; um default erraria a area). Preencher so se houver um
+      tipo dominante.
 - [ ] (Opcional) ADVBOX_USERS_MAP = "ID:NOME,ID:NOME" para exibir nomes nos
       relatorios.
 
@@ -112,11 +117,14 @@ comissionamento com terceiros. Cadastrar apenas se/quando isso for definido:
 
 ## 7. Padrao de pecas / timbrado
 
-- [ ] `config/timbrado_modelo.docx` — AINDA NAO RECEBIDO. O escritorio precisa
-      enviar o .docx oficial (logo + cabecalho/rodape) — ver
-      `config/timbrado_modelo.LEIA-ME.txt` para o formato exigido.
-- [ ] Confirmar margens (o motor aplica o padrao PAB 3cm/1,6cm/3cm/3cm por
-      default — confirmar se o escritorio usa o mesmo).
+- [x] `config/timbrado_modelo.docx` — OK. Extraido da peca real
+      uma peticao inicial do escritorio (Drive do escritorio): logo no cabecalho, marca
+      d'agua "A" e rodape de contato. Ver `config/timbrado_modelo.LEIA-ME.txt`.
+- [x] Margens confirmadas nas pecas reais: 2,5cm topo / 2,5cm base / 3,0cm
+      esquerda / 3,0cm direita, cabecalho e rodape a 0,5cm. O motor ja aplica.
+- [x] Padrao de formatacao CONFIRMADO em 03/09/2026: Segoe UI 11pt, entrelinhas
+      "Pelo menos" 15pt, topicos em tabela azul DBE5F1. (antes: Ebrima 12pt, recuo de
+      1a linha 2,5cm) ou prefere outro — ver `.claude/rules/padroes-documentos.md`.
 - [ ] **Previdenciario e Militar:** pedir 1-2 pecas ja protocoladas em cada
       area para calibrar `agentes_claude/carneiro-previdenciario.md` e
       `carneiro-militar.md` puxando o estilo real da Dra. Fabiana (hoje sao
@@ -148,9 +156,8 @@ comissionamento com terceiros. Cadastrar apenas se/quando isso for definido:
 
 ### Verificacao final
 
-- [ ] `python OPERACIONAL/main.py tarefas` lista tarefas do ADVBOX sem erro
-      (depende de ADVBOX_API_TOKEN + ADVBOX_USER_RESPONSAVEL preenchidos, e de
-      confirmar que o escritorio usa ADVBOX).
+- [x] `python OPERACIONAL/main.py tarefas` lista tarefas do ADVBOX sem erro
+      (validado em 03/09/2026; `processos` e `prazos` idem).
 - [ ] `python FINANCEIRO/fechamento_mensal.py MM/YYYY --sem-lancar` roda o
       fechamento (modo seguro) — depende das regras financeiras (secao 5).
 - [ ] Um intake de teste gera os 4 documentos no timbrado real (apos o timbrado

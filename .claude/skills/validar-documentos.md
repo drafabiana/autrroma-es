@@ -15,7 +15,7 @@ Apos gerar o intake, rodar validacao:
 ## Checklist automatico
 - Verifica se todos os placeholders {{}} foram substituidos
 - Confirma dados pessoais presentes (CPF, RG, endereco)
-- Valida formatacao (fonte Montserrat, 11pt)
+- Valida formatacao (fonte Segoe UI, 11pt)
 - Confere consistencia entre documentos (mesmo CPF em todos)
 - Identifica campos vazios que precisam preenchimento manual
 

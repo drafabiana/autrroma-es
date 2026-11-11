@@ -34,6 +34,7 @@ from collections import defaultdict
 sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8')
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'INTEGRACOES'))
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 from dotenv import load_dotenv
 load_dotenv(os.path.join(os.path.dirname(__file__), '..', 'config', '.env'))
@@ -190,43 +191,54 @@ def cmd_processos(args):
 # ============================================================
 
 def cmd_prazos(args):
+    """
+    Prazos em aberto: VENCIDOS primeiro, depois os que vencem hoje e os
+    proximos N dias (padrao 14).
+
+    A versao anterior consultava so de hoje ate +14 dias e, por isso, escondia
+    prazo vencido e nao concluido - em 16/10/2026 mostrava 2 de 8. A coleta
+    agora vive em OPERACIONAL/prazos.py, compartilhada com o relatorio diario
+    das 9h (OPERACIONAL/prazos_diario.py).
+    """
+    import prazos as mod_prazos
+
+    dias = getattr(args, 'dias', None) or mod_prazos.DIAS_ADIANTE
+    dados = mod_prazos.coletar(dias_adiante=dias,
+                               incluir_sem_prazo=getattr(args, 'sem_prazo', False))
+
     print('=' * 80)
-    print('  PRAZOS FATAIS - PROXIMOS 14 DIAS')
+    print(f'  PRAZOS EM ABERTO - VENCIDOS + PROXIMOS {dias} DIAS')
     print('=' * 80)
+    print(f'\n  Total em aberto: {dados["total"]}'
+          f'  (vencidos: {len(dados["vencidos"])}'
+          f' | hoje: {len(dados["hoje_lista"])}'
+          f' | a vencer: {len(dados["proximos"])})')
 
-    inicio = datetime.now()
-    fim = inicio + timedelta(days=14)
+    for titulo, chave in (('VENCIDOS - PRIORIDADE', 'vencidos'),
+                          ('VENCEM HOJE', 'hoje_lista'),
+                          (f'PROXIMOS {dias} DIAS', 'proximos')):
+        itens = dados[chave]
+        if not itens:
+            continue
+        print(f'\n  --- {titulo} ({len(itens)}) ---')
+        for i in itens:
+            urg = ' [URGENTE]' if i['urgente'] else ''
+            print(f'\n  PRAZO: {i["prazo"].strftime("%d/%m/%Y")} '
+                  f'({mod_prazos.descrever_dias(i["dias"])}){urg}')
+            print(f'    {i["tarefa"][:40]} | {i["cliente"][:30]}')
+            print(f'    Responsavel: {", ".join(i["responsaveis"])}')
+            if i['processo']:
+                print(f'    Processo: {i["processo"]}')
+            if i['notas']:
+                print(f'    {i["notas"].splitlines()[0][:70]}')
 
-    r = requests.get(f'{ADVBOX_BASE}/posts', headers=_headers(), params={
-        'deadline_start': inicio.strftime('%Y-%m-%d'),
-        'deadline_end': fim.strftime('%Y-%m-%d'),
-        'limit': 100
-    }, timeout=15)
-    data = r.json()
-    tarefas = data.get('data', [])
+    if dados['sem_prazo']:
+        print(f'\n  --- PENDENTES SEM PRAZO ({len(dados["sem_prazo"])}) ---')
+        for i in dados['sem_prazo']:
+            print(f'  {i["criada"]} | {i["tarefa"][:28]:28} | {i["cliente"][:26]}')
 
-    pendentes = [t for t in tarefas if any(not u.get('completed') for u in t.get('users', []))]
-    pendentes.sort(key=lambda x: x.get('date_deadline') or '9999')
-
-    print(f'\n  Prazos encontrados: {len(pendentes)}')
-
-    for t in pendentes:
-        lawsuit = t.get('lawsuit', {}) or {}
-        cli = ''
-        if lawsuit.get('customers'):
-            cli = lawsuit['customers'][0].get('name', '')
-        prazo = (t.get('date_deadline') or '')[:10]
-        resps = [u.get('name', '')[:20] for u in t.get('users', []) if not u.get('completed')]
-        urg = ' [URGENTE]' if any(u.get('urgent') for u in t.get('users', [])) else ''
-        notes = (t.get('notes') or '')[:60]
-
-        dias_rest = (datetime.strptime(prazo, '%Y-%m-%d') - datetime.now()).days if prazo else '?'
-
-        print(f'\n  PRAZO: {prazo} ({dias_rest} dias) {urg}')
-        print(f'    {t.get("task","")[:30]} | {cli[:30]}')
-        print(f'    Responsavel: {", ".join(resps)}')
-        if notes:
-            print(f'    {notes}')
+    if dados['total'] == 0:
+        print('\n  Nenhum prazo em aberto na janela.')
 
 
 # ============================================================
@@ -316,7 +328,9 @@ def main():
     p_procs.add_argument('--responsavel', '-r', help='Filtrar por responsavel')
 
     # prazos
-    p_prazos = subparsers.add_parser('prazos', help='Listar prazos fatais proximos')
+    p_prazos = subparsers.add_parser('prazos', help='Prazos em aberto (vencidos + proximos dias)')
+    p_prazos.add_argument('--dias', type=int, default=None, help='horizonte futuro (padrao: 14)')
+    p_prazos.add_argument('--sem-prazo', action='store_true', help='incluir pendentes sem data')
 
     # baixar-docs
     p_baixar = subparsers.add_parser('baixar-docs', help='Baixar docs do Drive para gerar peticao')
